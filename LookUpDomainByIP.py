@@ -1,7 +1,7 @@
 '''
 Language & Version:  Python 3.4
 This script allow the user to identify the path and file that holds a list of IP addresses
-that they would like to loop up the domain name for.
+that they would like to look up the domain name for.
 The user can also indicate where to save the file and what to name it.
 '''
 
