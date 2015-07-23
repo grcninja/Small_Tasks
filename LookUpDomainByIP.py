@@ -28,17 +28,17 @@ dt = datetime.date.today()
 output_name = (output_name+"_"+str(dt)+".txt")
 output_file_name = os.path.join(output_path, output_name)
 input_file_name = os.path.join(input_path, input_name)
+process_file_name = os.path.join(input_path, "cleaned_input.txt")
 
 #stripout blank lines from the source file
-with open(input_file_name,'r+') as f:
+with open(input_file_name,'r') as f, open(process_file_name,"w")as f2:
     for line in f:
-        if line.strip():
-            f.write(line)
+        line.rstrip()
+        f2.write(line)
 
-lines = file_len(input_file_name)
+lines = file_len(process_file_name)
 
-
-with open(input_file_name,"r") as fin, open(output_file_name,"w") as fout:
+with open(process_file_name,"r") as fin, open(output_file_name,"w") as fout:
     reader = csv.reader(fin)#pulling the domain name out of this to look up the IP
     d = list(reader)
     print(d)
