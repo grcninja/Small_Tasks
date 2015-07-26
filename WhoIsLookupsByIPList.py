@@ -56,7 +56,9 @@ with open(process_file_name,"r") as fin, open(output_file_name,"a") as fout:
         ip = d[i][0]
         ip_lookup = ip.rstrip()
         obj = IPWhois(ip_lookup)
-        results = obj.lookup()
+        results = obj.lookup()#this gives you back basics
+        #results = obj.lookup(get_referral=True)  #this will give you referral WHOIS informatio if it is available
+        #results = obj.lookup(inc_raw=True,get_referral=True)#inc_raw will give you exactly what is on the website, it will be a lot of extra detail
         results["nets"][0]['country']
         results["nets"][0]['abuse_emails']
         fout.write("\n\nRESULT_RECORD\n\n")
