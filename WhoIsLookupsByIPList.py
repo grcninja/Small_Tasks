@@ -10,7 +10,7 @@ Download
 2.  Get the latest version of whoisip go here https://pypi.python.org/pypi
     and search for ipwhois in the search box.
 Install
-3.  After installing these, use pip3.4 to install the packages. 
+3.  After downloading these, use pip3.4 to install the packages. 
 '''
 import csv
 import datetime
