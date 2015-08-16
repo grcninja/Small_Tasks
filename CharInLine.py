@@ -1,3 +1,9 @@
+'''
+Language & Version:  Python 3.4
+This script looks in each line for the : character.  If it's there, the line is written to a new file.   
+If it is not then it is discarded.  
+'''
+
 import csv
 import datetime
 import os
