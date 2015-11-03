@@ -1,7 +1,6 @@
 #Python 3.4
 
 import datetime
-import fileinput
 import os.path
 import pprint
 import shodan
