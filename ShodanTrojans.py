@@ -40,7 +40,7 @@ with open(txt_full_file_name,'r') as in_file, open(ip_full_file_name ,'w') as ou
         if line in seen: continue #skip duplicates
         if "'ip_str'" in line:
             seen.add(line)
-            fline = line.strip().replace("'ip_str': '", "").replace("',", "")
+            fline = line.strip().replace("'ip_str': '", "").replace("',", "") #thx @loji
             out_file_ip.write(fline)
             out_file_ip.write("\n")
 
@@ -51,7 +51,7 @@ with open(txt_full_file_name,'r') as in_file, open(domain_full_file_name,'w') as
         if line in seen: continue #skip duplicates
         if "'domains'" in line:
             seen.add(line)
-            fline = line.replace("'domains': ", "").replace("'", "").replace("[","").replace("],","").replace(",","").strip()
+            fline = line.replace("'domains': ", "").replace("'", "").replace("[","").replace("],","").replace(",","").strip() #thx @loji
             if len(fline)>0: #don't write blank lines, some of the raw data doesn't have domain data, but writes the line anyway
                 out_file_domains.write(fline)
                 out_file_domains.write("\n")
