@@ -23,8 +23,6 @@ txt_full_file_name = os.path.join(save_path, txt_file_name)
 ip_full_file_name = os.path.join(save_path, ip_file_name)
 domain_full_file_name = os.path.join(save_path, domain_file_name)
 
-temp_full_file_name = os.path.join(save_path, temp_file_name)
-
 #raw output in display
 #pprint.pprint(results)
 
