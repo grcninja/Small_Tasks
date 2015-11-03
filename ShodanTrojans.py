@@ -1,4 +1,6 @@
 #Python 3.4
+#Author - Tazz
+#Please use responsibly and read the notes on the design behing this
 
 import datetime
 import os.path
