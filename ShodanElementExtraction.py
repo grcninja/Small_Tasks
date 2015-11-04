@@ -2,16 +2,13 @@
 #Author - Tazz
 '''
 Thi script was written because we have a tendency to dump JSON data into TX files so multiple teams can have a copy.
-We would normally run the ShodanBulkHost script first, then use this script.
-This script allows the teams to pull out what fields matter to them.
+We would normally run the ShodanBulkHost script first, which looks up a large list of IPs, then use this script.
+This script allows the teams to pull out what fields matter to them, such as all the domain names that were in the file
+ or all of the MAC addresses, timestamps, ip's etc....and put them all in one file.
 I do not recommend using this if you want to pull groups of data such as all the location data elements.
-An example of a data elements would be:
 
-domains
-isp
-timestamp
-hostname
-ip_str
+It is worth noting, that the output isn't gorgeous, but with a few editing sweeps with Notepad++ it's perfect
+I can't please everyone all the time. :)
 
 go to https://developer.shodan.io/api/banner-specification for a list of data elements in the banners
 '''
