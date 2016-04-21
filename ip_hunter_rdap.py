@@ -1,7 +1,7 @@
 #!/usr/bin/python
 '''
 Python 3.5 compatible
-Creates a tab delimited output file
+Creates a tab delimited output file - next version of this will create a CSV
 Dependendcies
   * ipwhois version 13
   * pprintpp 2.3 (prety print plus plus)
