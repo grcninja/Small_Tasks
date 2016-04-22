@@ -45,10 +45,11 @@ def tab_add(entry):
     return tabbed
 
 def newline_clean(original):
-  cleaned = original
+  
     try:
         cleaned = original.replace("\n","|").replace("\r","|")
-    except: continue #shame on me for this
+    except: 
+        cleaned = original  #shame on me for this
     return cleaned
 
 
@@ -65,7 +66,7 @@ errors_file = os.path.join(output_path,"processing errors.txt")
 #sort file and stripout blank lines
 with open(input_file_name,'r') as f, open(process_file_name,"w")as f2:
     for line in sorted(f):
-        if len(line) > = 7: #a proper ip address will be at least 1.1.1.1
+        if (len(line) >= 7): #a proper ip address will be at least 1.1.1.1
             line.strip().replace(" ","")
             f2.write(line)
 
