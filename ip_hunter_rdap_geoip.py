@@ -8,7 +8,7 @@ it requires you to have a GeoIP2-City database from MaxMind.
 
 If you do not wish to purchase this, consider using the shodan package instead as you can pull geo data from there as well
 
-Dependency on geoip2 package
+Dependency on geoip2, ipwhois v13 package
 
 You can get a free 
 '''
