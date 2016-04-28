@@ -8,7 +8,7 @@ it requires you to have a GeoIP2-City database from MaxMind.
 
 If you do not wish to purchase this, consider using the shodan package instead as you can pull geo data from there as well
 
-Dependency on geoip2, ipwhois v13 package
+Dependency on geoip2 package
 
 You can get a free 
 '''
@@ -18,6 +18,29 @@ import geoip2.database
 import os.path
 import sys
 from ipwhois import IPWhois
+
+class GeoDB(object):
+    def __init__(self, maxmind_db_path):
+        self.reader = geoip2.database.Reader(maxmind_db_path)
+    def lookup_ip(self, ip_addr):
+        geo_ip = {"MaxMind_ip_iso_code":"UNK","MaxMind_ip_country":"UNK","MaxMind_ip_state":"UNK","MaxMind_ip_city":"UNK","MaxMind_ip_zipcode":"UNK"}
+        #open GeoIP2 data reader
+        try:
+            ip = self.reader.city(ip_addr)
+            if ip.country.iso_code is not None:
+                geo_ip["MaxMind_ip_iso_code"] = (newline_clean(ip.country.iso_code)) #US
+            if ip.country.name is not None:
+                geo_ip["MaxMind_ip_country"] = (newline_clean(ip.country.name)) #'United States'
+            if ip.subdivisions.most_specific.name is not None:
+                geo_ip["MaxMind_ip_state"] = (newline_clean(ip.subdivisions.most_specific.name)) #'Minnesota'
+            if ip.city.name is not None:
+                geo_ip["MaxMind_ip_city"] = (newline_clean(ip.city.name)) #'Minneapolis'
+            if ip.postal.code is not None:
+                geo_ip["MaxMind_ip_zipcode"] = (newline_clean(ip.postal.code)) #'55455'
+        except:
+            print("Error getting MaxMind Data")
+        return geo_ip
+
 
 def file_len(fname):
     with open(fname) as f:
@@ -40,33 +63,14 @@ def phone_clean(phone):
     return just_phone
 
 
-def getMaxMind(ip_address):
-    ip_addy = ip_address
-    geo_ip = {"MaxMind_ip_iso_code":"UNK","MaxMind_ip_country":"UNK","MaxMind_ip_state":"UNK","MaxMind_ip_city":"UNK","MaxMind_ip_zipcode":"UNK"}
-    #open GeoIP2 data reader
-    reader = geoip2.database.Reader("C:/Users/Tazz/Desktop/MyPy/Maxmind_GeoIP2-City.mmdb")
-    try:
-        ip = reader.city(ip_addy)
-        if ip.country.iso_code is not None:
-            geo_ip["MaxMind_ip_iso_code"] = (newline_clean(ip.country.iso_code)) #US
-        if ip.country.name is not None:
-            geo_ip["MaxMind_ip_country"] = (newline_clean(ip.country.name)) #'United States'
-        if ip.subdivisions.most_specific.name is not None:
-            geo_ip["MaxMind_ip_state"] = (newline_clean(ip.subdivisions.most_specific.name)) #'Minnesota'
-        if ip.city.name is not None:
-            geo_ip["MaxMind_ip_city"] = (newline_clean(ip.city.name)) #'Minneapolis'
-        if ip.postal.code is not None:
-            geo_ip["MaxMind_ip_zipcode"] = (newline_clean(ip.postal.code)) #'55455'
-    except:
-        print("Unexpected Error getting MaxMind GeoIP data for: "+ip_addy)
-    reader.close()
-    return geo_ip
-
 dt = datetime.date.today()
-input_path = "C:/Users/Tazz/Desktop/MyPy/_myinput/"
-input_name = "ips.txt"
+#input_path = "/path/to/_myinput"  #use this if you feel lik being lazy or are only doing things for yourself
+input_path = str(input("Enter the path to the ip list? "))
+#input_name = "ips.txt"
+input_name = str(input("Enter the name of the ip list (include the extension)? "))
 input_file_name = os.path.join(input_path, input_name)
-output_path = "C:/Users/Tazz/Desktop/MyPy/_myoutput/"
+#output_path = "path/to/_myoutput/"  #use this if you feel lik being lazy or are only doing things for yourself
+output_path = str(input("Enter the path you want your output written to.\n Note your output file will be called IP_details_$date_.csv: "))
 output_name = ("IP_details_"+str(dt)+".csv")
 output_file_name = os.path.join(output_path, output_name)
 process_file_name = os.path.join(input_path,"cleaned_input.txt")
@@ -80,6 +84,12 @@ with open(input_file_name,"r") as f, open(process_file_name,"w")as f2:
         if line in seen: continue
         f2.write(line)
         seen.add(line)
+
+maxmind_db_file_path = str(input("Where is the Maxmind GeoIP2-City.mmdb file? "))
+maxmind_db_name = str(input("What did you name the mmdb file (inlude .mmdb in your reply)? "))
+maxmind_db_path = os.path.join(maxmind_db_file_path, maxmind_db_name)
+
+geoip = GeoDB(maxmind_db_path)
 
 work = file_len(process_file_name)
 print(str(work)+" ips to process\n")
@@ -109,8 +119,6 @@ with open(process_file_name,"r") as fin, open(output_file_name,"w",newline='',en
     writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
     writer.writeheader()
 
-
-    
     for line in fin:
 
         #set up variables
@@ -132,7 +140,7 @@ with open(process_file_name,"r") as fin, open(output_file_name,"w",newline='',en
         print("Processing "+str(addr)+" "+str(work)+" more IP's to go")
 
         #Get GeoIP data from MaxMind database
-        geo_data = getMaxMind(addr)#returns a dictionary
+        geo_data = geoip.lookup_ip(addr)#returns a dictionary
         MaxMind_ip_iso_code = geo_data.pop("MaxMind_ip_iso_code")
         MaxMind_ip_country = geo_data.pop("MaxMind_ip_country")
         MaxMind_ip_state = geo_data.pop("MaxMind_ip_state")
