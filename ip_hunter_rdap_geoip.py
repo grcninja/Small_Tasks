@@ -8,9 +8,8 @@ it requires you to have a GeoIP2-City database from MaxMind.
 
 If you do not wish to purchase this, consider using the shodan package instead as you can pull geo data from there as well
 
-Dependency on geoip2 package
+Dependency on geoip2 & ipwhois v13 package
 
-You can get a free 
 '''
 import csv
 import datetime
@@ -40,7 +39,37 @@ class GeoDB(object):
         except:
             print("Error getting MaxMind Data")
         return geo_ip
-
+        
+class Emails(object):
+    '''
+    Not all of the RIR's store contact info in the same ways at the same levels and an abuse email can be burried.
+    After testing on 700 IPs from various RIRs showed that there is ABSOLUTELY NO consistency as to which level you
+    find a true asbuse contact. So we are parsing multiple levels (depth=x) to get all the emails.
+    In some test cases the first abuse email didn't appear until level 3
+    '''
+    def __init__(self, ip):
+        self.WIobj = IPWhois(ip, timeout=20)
+    def get_emails(self, max_depth):
+        email_list = list()
+        seen = set()
+        try:
+            for x in range(max_depth):
+                results = self.WIobj.lookup_rdap(depth=x)
+                for m in results['objects'].items():
+                    if results['objects'] is not None:
+                        for x in results['objects']:
+                            tmp_em = results['objects'][x]['contact']['email']
+                            if tmp_em is not None:
+                                for y in range(len(tmp_em)):
+                                    if tmp_em is not None:
+                                        email = tmp_em[y]['value']
+                                        if email in seen: continue
+                                        seen.add(email)
+                                        email_list.append(email)
+                                        
+        except:
+            print("Error in the get_emails function")
+        return email_list
 
 def file_len(fname):
     with open(fname) as f:
@@ -103,7 +132,7 @@ with open(process_file_name,"r") as fin, open(output_file_name,"w",newline='',en
                   "asn_country_code" ,
                   "network_cidr" ,
                   "contact_address" ,
-                  "contact_email" ,
+                  "contact_emails" ,
                   "contact_phone" ,
                   "contact_name" ,
                   "contact_title" ,
@@ -127,7 +156,7 @@ with open(process_file_name,"r") as fin, open(output_file_name,"w",newline='',en
         asn_country_code = "None"
         network_cidr = "None"
         contact_address = "None"
-        contact_email = "None"
+        contact_emails = list()
         contact_phone = "None"
         contact_name = "None"
         contact_title = "None"
@@ -137,7 +166,7 @@ with open(process_file_name,"r") as fin, open(output_file_name,"w",newline='',en
         contact_info_link3 = "None"
         addr = line.rstrip().strip()
         
-        print("Processing "+str(addr)+" "+str(work)+" more IP's to go")
+        print("Processing "+str(addr)+" "+str(work-1)+" more IP's to go")
 
         #Get GeoIP data from MaxMind database
         geo_data = geoip.lookup_ip(addr)#returns a dictionary
@@ -148,6 +177,20 @@ with open(process_file_name,"r") as fin, open(output_file_name,"w",newline='',en
         MaxMind_ip_zipcode = geo_data.pop("MaxMind_ip_zipcode")
         geo_data.clear() #for good measure
 
+        try:
+            max_depth = 5
+            email_entries = Emails(addr)
+            contact_emails = email_entries.get_emails(max_depth)
+            send_to = "none"
+            if contact_emails is not None:
+                send_to = ""
+                for a in range(len(contact_emails)):
+                    entry = contact_emails[a]
+                    entry = entry + ";"
+                    send_to = send_to + entry
+        except:
+            print("Well this isn't working")
+
         #Get WhoIs Data
         try:
             obj = IPWhois(addr, timeout=20)
@@ -156,12 +199,12 @@ with open(process_file_name,"r") as fin, open(output_file_name,"w",newline='',en
             asn_country_code = (newline_clean(results['asn_country_code']))
             network_cidr = (newline_clean(results['network']['cidr']))
             tmp_links = (newline_clean(results['network']['links']))
-            for x in range(len(tmp_links)):
-                if x == 0:
+            for i in range(len(tmp_links)):
+                if i == 0:
                     contact_info_link1 = tmp_links[0]
-                elif x == 1:
+                elif i == 1:
                     contact_info_link2 = tmp_links[1]
-                elif x == 2:
+                elif i == 2:
                     contact_info_link3 = tmp_links[2]
 
             #Entry identifier - this is the Internet Registry Number, known as the handle Ex:ZG39-ARIN for Google
@@ -175,10 +218,11 @@ with open(process_file_name,"r") as fin, open(output_file_name,"w",newline='',en
                         if tmp_add is not None:
                             contact_address = str(newline_clean(tmp_add[0]['value']))
 
+                        #This section was replaced by the Emails class
                         #Email - first result only
-                        tmp_em = results['objects'][k]['contact']['email']
-                        if tmp_em is not None:
-                            contact_email = str(newline_clean(tmp_em[0]['value']))
+                        #tmp_em = results['objects'][k]['contact']['email']
+                        #if tmp_em is not None:
+                            #contact_emails = str(newline_clean(tmp_em[0]['value']))
 
                         #Phone - first result only
                         tmp_ph = results['objects'][k]['contact']['phone']
@@ -207,7 +251,7 @@ with open(process_file_name,"r") as fin, open(output_file_name,"w",newline='',en
                              "asn_country_code" : asn_country_code,
                              "network_cidr" : network_cidr,
                              "contact_address" : contact_address,
-                             "contact_email" : contact_email,
+                             "contact_emails" : send_to,
                              "contact_phone" : contact_phone,
                              "contact_name" : contact_name,
                              "contact_title" : contact_title,
@@ -229,7 +273,7 @@ with open(process_file_name,"r") as fin, open(output_file_name,"w",newline='',en
                  "asn_country_code" : "-",
                  "network_cidr" : "-",
                  "contact_address" : "-",
-                 "contact_email" : "-",
+                 "contact_emails" : "-",
                  "contact_phone" : "-",
                  "contact_name" : "-",
                  "contact_title" : "-",
