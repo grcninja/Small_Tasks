@@ -6,17 +6,27 @@ it requires you to have a GeoIP2-City database from MaxMind.
   https://www.maxmind.com/en/geoip2-databases
   https://www.maxmind.com/en/geolite2-developer-package
 
-If you do not wish to purchase this, consider using the shodan package instead as you can pull geo data from there as well
+If you do not wish to purchase this you can comment out the GeoDB class
+and use the ShodanNode class.  You will also need to remove the code for
+any of the MaxMind variable and keys
 
-Dependency on geoip2 & ipwhois v13 package
+You will also need to get a Shodan API Key which you can get with a free account.
 
+
+Dependencies on:
+* geoip2 2.3.0
+* ipwhois3 0.13
+* shodan 1.5.3
 '''
 import csv
 import datetime
 import geoip2.database
 import os.path
+import pprintpp as pp #used for troubleshooting type pp.pprint(stuff)
+import shodan
 import sys
 from ipwhois import IPWhois
+
 
 class GeoDB(object):
     def __init__(self, maxmind_db_path):
@@ -39,7 +49,107 @@ class GeoDB(object):
         except:
             print("Error getting MaxMind Data")
         return geo_ip
-        
+    
+class ShodanNode(object):
+    def __init__(self):
+        self.api = shodan.Shodan("YOUR API KEY HERE")
+    def get_shodan(self, ip_addr):
+        hostnames = []
+        domains = []
+        ports = []
+        seen_host = set()
+        seen_domain = set()
+        seen_port = set()
+        sho = {"timestamp":"TBD",
+               "os":"UNK",
+               "product":"UNK",
+               "isp":"UNK",
+               "asn":"UNK",
+               "org":"UNK",
+               "hostnames":"UNK",
+               "domains":"UNK",
+               "ports" : "UNK",
+               "loc_city":"UNK",
+               "loc_region_code":"UNK",
+               "loc_are_code":"UNK",
+               "loc_longitude":"UNK",
+               "loc_latitiude":"UNK",
+               "loc_country_code_3": "UNK",
+               "loc_country_code":"UNK",
+               "loc_country_name":"UNK",
+               "loc_postal_code":"UNK",
+               "loc_dma_code":"UNK",}
+        try:
+            host = self.api.host(ip_addr)
+            #pp.pprint(host)
+            if host['ports'] is not None:
+                if len(host['ports']) > 0:
+                    for x in range(len(host['ports'])):
+                        new_port = str(host['ports'][x])
+                        if new_port in seen_port: continue
+                        seen_port.add(new_port)
+                        new_port = new_port + ";"
+                        ports.append(new_port)
+                        #pp.pprint(ports)
+            if host['data'] is not None:
+                for item in host['data']:      
+                    if 'timestamp' in item and item['timestamp'] is not None:
+                        sho["timestamp"] = item['timestamp']
+                    if 'os' in item and item['os'] is not None:
+                        sho["os"] = item['os']
+                    if 'isp' in item and item['isp'] is not None:
+                        sho["isp"] = item['isp']
+                    if 'org' in item and item['org'] is not None:
+                        sho["org"] = item['org']
+                    if 'asn' in item and item['asn'] is not None:
+                        sho["asn"] = item['asn']
+                    if 'product' in item and item['product'] is not None:
+                        sho["product"] = item['product']
+                    if 'hostnames' in item and len(item['hostnames']) > 0:
+                        for x in range(len(item['hostnames'])):
+                            new_hostname = item['hostnames'][x]
+                            if new_hostname in seen_host:continue
+                            seen_host.add(new_hostname)
+                            new_hostname = new_hostname + ";"
+                            hostnames.append(new_hostname)
+                            #pp.pprint(hostnames)
+                    if 'domains' in item and len(item['domains']) > 0:
+                        for x in range(len(item['domains'])):
+                            new_domain = item['domains'][x]
+                            if new_domain in seen_domain: continue
+                            seen_domain.add(new_domain)
+                            new_domain = new_domain + ";"
+                            domains.append(new_domain)
+                            #pp.pprint(domains)
+                    if 'location' in item:
+                        if item['location']['city'] is not None:
+                            sho["loc_city"] = item['location']['city']
+                        if item['location']['region_code'] is not None:
+                            sho["loc_region_code"] = item['location']['region_code']
+                        if item['location']['area_code'] is not None:
+                            sho["loc_area_code"] = item['location']['area_code']
+                        if item['location']['longitude'] is not None:
+                            sho["loc_longitude"] = item['location']['longitude']
+                        if item['location']['latitude'] is not None:
+                            sho["loc_latitude"] = item['location']['latitude']
+                        if item['location']['country_code3'] is not None:
+                            sho["loc_country_code3"] = item['location']['country_code3']
+                        if item['location']['country_code'] is not None:
+                            sho["loc_country_code"] = item['location']['country_code']
+                        if item['location']['country_name'] is not None:
+                            sho["loc_country_name"] = item['location']['country_name']
+                        if item['location']['postal_code'] is not None:
+                            sho["loc_postal_code"] = item['location']['postal_code']
+                        if item['location']['dma_code'] is not None:
+                            sho["loc_dma_code"] = item['location']['dma_code']
+                
+                sho["hostnames"] = hostnames
+                sho["domains"] = domains
+                sho["ports"] = ports
+        except:
+            print("Error in ShodanNode")
+        return sho
+
 class Emails(object):
     '''
     Not all of the RIR's store contact info in the same ways at the same levels and an abuse email can be burried.
@@ -93,12 +203,9 @@ def phone_clean(phone):
 
 
 dt = datetime.date.today()
-#input_path = "/path/to/_myinput"  #use this if you feel lik being lazy or are only doing things for yourself
 input_path = str(input("Enter the path to the ip list? "))
-#input_name = "ips.txt"
 input_name = str(input("Enter the name of the ip list (include the extension)? "))
 input_file_name = os.path.join(input_path, input_name)
-#output_path = "path/to/_myoutput/"  #use this if you feel lik being lazy or are only doing things for yourself
 output_path = str(input("Enter the path you want your output written to.\n Note your output file will be called IP_details_$date_.csv: "))
 output_name = ("IP_details_"+str(dt)+".csv")
 output_file_name = os.path.join(output_path, output_name)
@@ -119,6 +226,7 @@ maxmind_db_name = str(input("What did you name the mmdb file (inlude .mmdb in yo
 maxmind_db_path = os.path.join(maxmind_db_file_path, maxmind_db_name)
 
 geoip = GeoDB(maxmind_db_path)
+showme = ShodanNode()
 
 work = file_len(process_file_name)
 print(str(work)+" ips to process\n")
@@ -144,13 +252,37 @@ with open(process_file_name,"r") as fin, open(output_file_name,"w",newline='',en
                   "MaxMind_ip_country" ,
                   "MaxMind_ip_state" ,
                   "MaxMind_ip_city" ,
-                  "MaxMind_ip_zipcode"]
-    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                  "MaxMind_ip_zipcode",
+                  "shodan_timestamp",
+                  "shodan_os",
+                  "shodan_product",
+                  "shodan_isp",
+                  "shodan_asn",
+                  "shodan_org",
+                  "shodan_hostnames",
+                  "shodan_domains",
+                  "shodan_ports",
+                  "shodan_loc_city",
+                  "shodan_loc_region_code",
+                  "shodan_loc_are_code",
+                  "shodan_loc_longitude",
+                  "shodan_loc_latitiude",
+                  "shodan_loc_country_code_3",
+                  "shodan_loc_country_code",
+                  "shodan_loc_country_name",
+                  "shodan_loc_postal_code",
+                  "shodan_loc_dma_code",]
+    
+    writer = csv.DictWriter(csvfile, fieldnames=fieldnames, extrasaction="ignore")
     writer.writeheader()
 
-    for line in fin:
 
-        #set up variables
+    
+    for line in fin:
+        addr = line.rstrip().strip()
+        print("Processing {0}, {1} IPs remaining".format(addr,work-1))
+
+        #set up Who is data variables
         handle = "None"
         asn = "None"
         asn_country_code = "None"
@@ -163,10 +295,7 @@ with open(process_file_name,"r") as fin, open(output_file_name,"w",newline='',en
         contact_role = "None"
         contact_info_link1 = "None"
         contact_info_link2 = "None"
-        contact_info_link3 = "None"
-        addr = line.rstrip().strip()
-        
-        print("Processing "+str(addr)+" "+str(work-1)+" more IP's to go")
+        contact_info_link3 = "None"       
 
         #Get GeoIP data from MaxMind database
         geo_data = geoip.lookup_ip(addr)#returns a dictionary
@@ -176,6 +305,54 @@ with open(process_file_name,"r") as fin, open(output_file_name,"w",newline='',en
         MaxMind_ip_city = geo_data.pop("MaxMind_ip_city")
         MaxMind_ip_zipcode = geo_data.pop("MaxMind_ip_zipcode")
         geo_data.clear() #for good measure
+
+        #Get Shodan data
+        shod = showme.get_shodan(addr) #returns dictionary
+        shodan_timestamp = shod.pop("timestamp")
+        shodan_os = shod.pop("os")
+        shodan_product = shod.pop("product")
+        shodan_isp = shod.pop("isp")
+        shodan_asn = shod.pop("asn")
+        shodan_org = shod.pop("org")
+
+        namelist = shod.pop("hostnames")
+        namestring = ""
+        if len(namelist) == 0:
+            namestring = "None found"
+        for x in range(len(namelist)):
+            name = namelist[x]
+            namestring = namestring + name
+        shodan_hostnames = namestring
+
+        domainlist = shod.pop("domains")
+        domainstring = ""
+        if len(domainlist) == 0:
+            domainstring = "None found"
+        for x in range(len(domainlist)):
+            name = domainlist[x]
+            domainstring = domainstring + name
+        shodan_domains = domainstring
+
+        portlist = shod.pop("ports")
+        portstring = ""
+        if len(portlist) == 0:
+            portstring = "None found"
+        for x in range(len(portlist)):
+            name = portlist[x]
+            portstring = portstring + name
+        shodan_ports = portstring
+        
+        shodan_loc_city = shod.pop("loc_city")
+        shodan_loc_region_code = shod.pop("loc_region_code")
+        shodan_loc_are_code = shod.pop("loc_are_code")
+        shodan_loc_longitude = shod.pop("loc_longitude")
+        shodan_loc_latitiude = shod.pop("loc_latitiude")
+        shodan_loc_country_code_3 = shod.pop("loc_country_code_3")
+        shodan_loc_country_code = shod.pop("loc_country_code")
+        shodan_loc_country_name = shod.pop("loc_country_name")
+        shodan_loc_postal_code = shod.pop("loc_postal_code")
+        shodan_loc_dma_code = shod.pop("loc_dma_code")
+        shod.clear() 
 
         try:
             max_depth = 5
@@ -193,8 +370,10 @@ with open(process_file_name,"r") as fin, open(output_file_name,"w",newline='',en
 
         #Get WhoIs Data
         try:
+           
             obj = IPWhois(addr, timeout=20)
-            results = obj.lookup_rdap(depth=1)
+            results = obj.lookup_rdap()#default depth is 0, we only need top level values for the file
+
             asn = (newline_clean(results['asn']))
             asn_country_code = (newline_clean(results['asn_country_code']))
             network_cidr = (newline_clean(results['network']['cidr']))
@@ -205,7 +384,7 @@ with open(process_file_name,"r") as fin, open(output_file_name,"w",newline='',en
                 elif i == 1:
                     contact_info_link2 = tmp_links[1]
                 elif i == 2:
-                    contact_info_link3 = tmp_links[2]
+                    contact_info_link3 = tmp_links[2]  
 
             #Entry identifier - this is the Internet Registry Number, known as the handle Ex:ZG39-ARIN for Google
             for object_key, object_dict in results['objects'].items():
@@ -217,12 +396,6 @@ with open(process_file_name,"r") as fin, open(output_file_name,"w",newline='',en
                         tmp_add = results['objects'][k]['contact']['address']
                         if tmp_add is not None:
                             contact_address = str(newline_clean(tmp_add[0]['value']))
-
-                        #This section was replaced by the Emails class
-                        #Email - first result only
-                        #tmp_em = results['objects'][k]['contact']['email']
-                        #if tmp_em is not None:
-                            #contact_emails = str(newline_clean(tmp_em[0]['value']))
 
                         #Phone - first result only
                         tmp_ph = results['objects'][k]['contact']['phone']
@@ -263,29 +436,68 @@ with open(process_file_name,"r") as fin, open(output_file_name,"w",newline='',en
                              "MaxMind_ip_country" : MaxMind_ip_country,
                              "MaxMind_ip_state" : MaxMind_ip_state,
                              "MaxMind_ip_city" : MaxMind_ip_city,
-                             "MaxMind_ip_zipcode": MaxMind_ip_zipcode})
+                             "MaxMind_ip_zipcode": MaxMind_ip_zipcode,
+                             "shodan_timestamp" : shodan_timestamp,
+                             "shodan_os" : shodan_os,
+                             "shodan_product" : shodan_product,
+                             "shodan_isp" : shodan_isp,
+                             "shodan_asn" : shodan_asn,
+                             "shodan_org" : shodan_org,
+                             "shodan_hostnames" : shodan_hostnames,
+                             "shodan_domains" : shodan_domains,
+                             "shodan_ports" : shodan_ports,
+                             "shodan_loc_city" : shodan_loc_city,
+                             "shodan_loc_region_code" : shodan_loc_region_code,
+                             "shodan_loc_are_code" : shodan_loc_are_code,
+                             "shodan_loc_longitude" : shodan_loc_longitude,
+                             "shodan_loc_latitiude" : shodan_loc_latitiude,
+                             "shodan_loc_country_code_3" : shodan_loc_country_code_3,
+                             "shodan_loc_country_code" : shodan_loc_country_code,
+                             "shodan_loc_country_name" : shodan_loc_country_name,
+                             "shodan_loc_postal_code" : shodan_loc_postal_code,
+                             "shodan_loc_dma_code" : shodan_loc_dma_code})
 
         except Exception as e:
             #FWIW, there's much better ways to log errors, but I don't need it for what I am doing
             writer.writerow({"ip_addr" : addr,
-                 "handle" : "Error while pulling data",
-                 "asn" : "-",
-                 "asn_country_code" : "-",
-                 "network_cidr" : "-",
-                 "contact_address" : "-",
-                 "contact_emails" : "-",
-                 "contact_phone" : "-",
-                 "contact_name" : "-",
-                 "contact_title" : "-",
-                 "contact_role" : "-",
-                 "contact_info_link1" : "-",
-                 "contact_info_link2" : "-",
-                 "contact_info_link3" : "-",
-                 "MaxMind_ip_iso_code" : "-",
-                 "MaxMind_ip_country" : "-",
-                 "MaxMind_ip_state" : "-",
-                 "MaxMind_ip_city" : "-",
-                 "MaxMind_ip_zipcode": "-"})
+                             "handle" : "Error while pulling data",
+                             "asn" : "-",
+                             "asn_country_code" : "-",
+                             "network_cidr" : "-",
+                             "contact_address" : "-",
+                             "contact_emails" : "-",
+                             "contact_phone" : "-",
+                             "contact_name" : "-",
+                             "contact_title" : "-",
+                             "contact_role" : "-",
+                             "contact_info_link1" : "-",
+                             "contact_info_link2" : "-",
+                             "contact_info_link3" : "-",
+                             "MaxMind_ip_iso_code" : "-",
+                             "MaxMind_ip_country" : "-",
+                             "MaxMind_ip_state" : "-",
+                             "MaxMind_ip_city" : "-",
+                             "MaxMind_ip_zipcode": "-",
+                             "shodan_timestamp" : "-",
+                             "shodan_os" : "-",
+                             "shodan_product" :"-",
+                             "shodan_isp" : "-",
+                             "shodan_asn" : "-",
+                             "shodan_org" : "-",
+                             "shodan_hostnames" : "-",
+                             "shodan_domains" : "-",
+                             "shodan_ports" : "-",
+                             "shodan_loc_city" : "-",
+                             "shodan_loc_region_code" : "-",
+                             "shodan_loc_are_code" : "-",
+                             "shodan_loc_longitude" : "-",
+                             "shodan_loc_latitiude" : "-",
+                             "shodan_loc_country_code_3" : "-",
+                             "shodan_loc_country_code" : "-",
+                             "shodan_loc_country_name" : "-",
+                             "shodan_loc_postal_code" : "-",
+                             "shodan_loc_dma_code" : "-"})
+                             
             with open(errors_file,"a") as ferr:
                 ferr.write("Unexpected error getting WhoIs info for: "+addr)
                 ferr.write("\n")
