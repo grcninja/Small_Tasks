@@ -54,7 +54,7 @@ class GeoDB(object):
     
 class ShodanNode(object):
     def __init__(self):
-        self.api = shodan.Shodan("ZvR62ABttZVi3yJ4oPW0oawXwq8KlZcx")
+        self.api = shodan.Shodan("YOUR API KEY HERE")
     def get_shodan(self, ip_addr):
         hostnames = []
         domains = []
