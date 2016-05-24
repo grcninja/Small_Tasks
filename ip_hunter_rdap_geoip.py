@@ -12,6 +12,9 @@ any of the MaxMind variable and keys
 
 You will also need to get a Shodan API Key which you can get with a free account.
 
+A new section has been added to help the user check for and set up
+a default file structure to run this script. Please review the section below commented with
+#Check for necessary folders and files
 
 Dependencies on:
 * geoip2 2.3.0
@@ -54,7 +57,10 @@ class GeoDB(object):
     
 class ShodanNode(object):
     def __init__(self):
-        self.api = shodan.Shodan("YOUR API KEY HERE")
+        credentials = get_creds("shodan")
+        api_key = credentials.pop("api_key")
+        self.api = shodan.Shodan(api_key)
+        credentials.clear()
     def get_shodan(self, ip_addr):
         hostnames = []
         domains = []
@@ -183,6 +189,28 @@ class Emails(object):
             print("Error in the get_emails function")
         return email_list
 
+def get_creds(source_name):
+    creds = {"user":"" , "api_key":""}
+    while source_name is not None:
+        if source_name == "domain_tools":
+            credfile = os.path.expanduser('~/api_creds/domaintools.dtapi.txt')
+            with open(credfile,'r') as f:
+                creds["user"] = f.readline().strip()
+                creds["api_key"] = f.readline().strip()
+                break
+        if source_name == "shodan":
+            credfile = os.path.expanduser('~/api_creds/shodan.txt')
+            with open(credfile,'r') as f:
+                creds["api_key"] = f.readline().strip()
+                break
+        if source_name == "virus_total":
+            credfile = os.path.expanduser('~/api_creds/vt.txt')
+            with open(credfile,'r') as f:
+                creds["user"] = f.readline().strip()
+                creds["api_key"] = f.readline().strip()
+    return creds
+    
+
 def file_len(fname):
     with open(fname) as f:
         for i, l in enumerate(f):
@@ -260,28 +288,88 @@ def get_threatcrowd(ip):
     return tc
 
 dt = datetime.date.today()
-input_path = str(input("Enter the path to the ip list? "))
-input_name = str(input("Enter the name of the ip list (include the extension)? "))
-input_file_name = os.path.join(input_path, input_name)
-output_path = str(input("Enter the path you want your output written to.\n Note your output file will be called IP_details_$date_.csv: "))
-output_name = ("IP_details_"+str(dt)+".csv")
+
+#Check for necessary folders and files
+input_file_path_and_name = ""
+output_path = ""
+maxmind_db_path = ""
+
+missing_something = False
+
+if os.path.isfile(os.path.expanduser('~/scripts/ip_hunter/inputs/ips.txt')):
+    input_file_path_and_name = os.path.expanduser('~/scripts/ip_hunter/inputs/ips.txt')
+else:
+    print("missing the ips.txt file")
+    missing_something = True
+
+if os.path.lexists(os.path.expanduser('~/scripts/ip_hunter/configs/GeoIP2-City.mmdb')):
+    maxmind_db_path = os.path.expanduser('~/scripts/ip_hunter/configs/GeoIP2-City.mmdb')
+else:
+    print("missing the GeoIP2-City.mmdb file")
+    missing_something = True
+
+if os.path.isdir(os.path.expanduser('~/scripts/ip_hunter/outputs')):
+    output_path = os.path.expanduser('~/scripts/ip_hunter/outputs')
+else:
+    print("missing the outputs directory")
+    missing_something = True
+
+if missing_something:
+    try:
+        if not os.path.isdir(os.path.expanduser('~/scripts/ip_hunter/configs')):
+            os.makedirs(os.path.expanduser('~/scripts/ip_hunter/configs'))
+            with open(os.path.expanduser('~/scripts/ip_hunter/configs/readme.txt'),'a+') as config:
+                config.seek(0)
+                config.write("put your Maxmind_GeoIP2-City.mmdb in this directory")
+    except e as FileExistsError:
+        print("Cannot create the config directory because it already exists")
+    try:
+        if not os.path.isdir(os.path.expanduser('~/scripts/ip_hunter/inputs')):
+            os.makedirs(os.path.expanduser('~/scripts/ip_hunter/inputs'))
+            with open(os.path.expanduser('~/scripts/ip_hunter/inputs/readme.txt'),'a+') as config, \
+                    open(os.path.expanduser('~/scripts/ip_hunter/inputs/ips.txt'),'a+') as ips:
+                config.seek(0)
+                ips.seek(0)
+                config.write("This directory should have at minimum a text file named ips.txt with IP addresses, 1 per line.")
+    except e as FileExistsError:
+        print("Cannot create the inputs directory because it already exists")
+        
+    try:
+        if not os.path.isdir(os.path.expanduser('~/scripts/ip_hunter/outputs')):
+            os.makedirs(os.path.expanduser('~/scripts/ip_hunter/outputs'))
+            with open(os.path.expanduser('~/scripts/ip_hunter/outputs/readme.txt'),'a+') as config:
+                config.seek(0)
+                config.write("This directory will hold output files from this script and any error log.")
+    except e as FileExistsError:
+        print("Cannot create the inputs directory because it already exists")
+    print('''
+    Your system was not set up with the directory structure and source files that this script expected.
+    The directories have been created for you at ~/scripts/ip_hunter/.  
+    Each directory has a readme describing the expected content.
+    *  The configs directory - place ONLY ONE MaxMind GeoIP2-City.mmdb (with that name) in here
+    *  The inputs directory should have at minimum ips.txt with ip addresses, 1 per line
+    *  The outputs directory will hold the results of the script.
+
+    Please andd the files above and restart the script to continue processing.''')
+    sys.exit()
+    
+#output_path = str(input("Enter the path you want your output written to.\n Note your output file will be called IP_details_$date_.csv: "))
+output_name = ("IP_Hunting_"+str(dt)+".csv")
 output_file_name = os.path.join(output_path, output_name)
-process_file_name = os.path.join(input_path,"cleaned_input.txt")
-errors_file = os.path.join(output_path,"processing errors.txt")
+process_file_name = os.path.join(output_path,"cleaned_input.txt")
+errors_file = os.path.join(output_path,"processing_errors.txt")
 
 #sort file and stripout blank lines
-with open(input_file_name,"r") as f, open(process_file_name,"w")as f2:
+with open(input_file_path_and_name,"r") as f, open(process_file_name,"w")as f2:
     seen = set()
     for line in f:
-        line.strip(" \n\t\r abcdefghijklmnopqrstuvwxyz")
-        if line in seen: continue
-        f2.write(line)
-        seen.add(line)
+        ip = line.strip(" \n\t\r abcdefghijklmnopqrstuvwxyz~!@#$%^&*()_+`-={}|[]\\:;<>\/,")
+        if ip in seen: continue
+        f2.write(ip+"\n")
+        seen.add(ip)
 
-maxmind_db_file_path = str(input("Where is the Maxmind GeoIP2-City.mmdb file? "))
-maxmind_db_name = str(input("What did you name the mmdb file (inlude .mmdb in your reply)? "))
-maxmind_db_path = os.path.join(maxmind_db_file_path, maxmind_db_name)
 
+#General re-useable objects
 geoip = GeoDB(maxmind_db_path)
 showme = ShodanNode()
 
@@ -619,4 +707,4 @@ with open(process_file_name,"r") as fin, open(output_file_name,"w",newline='',en
 
         work = work-1
 
-print("done")
+sys.exit("ip_hunter script complete")
