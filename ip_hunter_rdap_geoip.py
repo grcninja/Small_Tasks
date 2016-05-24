@@ -193,18 +193,18 @@ def get_creds(source_name):
     creds = {"user":"" , "api_key":""}
     while source_name is not None:
         if source_name == "domain_tools":
-            credfile = os.path.expanduser('~/api_creds/domaintools.dtapi.txt')
+            credfile = os.path.expanduser('~/api_creds/dtapi.txt')
             with open(credfile,'r') as f:
                 creds["user"] = f.readline().strip()
                 creds["api_key"] = f.readline().strip()
                 break
         if source_name == "shodan":
-            credfile = os.path.expanduser('~/api_creds/shodan.txt')
+            credfile = os.path.expanduser('~/api_creds/shodanapi.txt')
             with open(credfile,'r') as f:
                 creds["api_key"] = f.readline().strip()
                 break
         if source_name == "virus_total":
-            credfile = os.path.expanduser('~/api_creds/vt.txt')
+            credfile = os.path.expanduser('~/api_creds/vtapi.txt')
             with open(credfile,'r') as f:
                 creds["user"] = f.readline().strip()
                 creds["api_key"] = f.readline().strip()
