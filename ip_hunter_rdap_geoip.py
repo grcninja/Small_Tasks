@@ -22,6 +22,7 @@ Dependencies on:
 * shodan 1.5.3
 '''
 import csv
+import dtapi.dtapi
 import datetime
 import geoip2.database
 from ipwhois import IPWhois
@@ -373,6 +374,12 @@ with open(input_file_path_and_name,"r") as f, open(process_file_name,"w")as f2:
 geoip = GeoDB(maxmind_db_path)
 showme = ShodanNode()
 
+#configure Domain Tools API access
+dt_creds = get_creds("domain_tools")
+dt_user = dt_creds.pop("user")
+dt_apikey = dt_creds.pop("api_key")
+dtapi.dtapi.configure(dt_user, dt_apikey, usessl=True)
+
 work = file_len(process_file_name)
 print(str(work)+" ips to process\n")
 
@@ -407,6 +414,7 @@ with open(process_file_name,"r") as fin, open(output_file_name,"w",newline='',en
                   "shodan_org",
                   "shodan_hostnames",
                   "shodan_domains",
+                  "dt_domains",
                   "shodan_ports",
                   "shodan_loc_city",
                   "shodan_loc_region_code",
@@ -422,7 +430,8 @@ with open(process_file_name,"r") as fin, open(output_file_name,"w",newline='',en
                   "threatcrowd_permalink",
                   "threatcrowd_references",
                   "threatcrowd_domains_resolved_date",
-                  "threatcrowd_verdict"]
+                  "threatcrowd_verdict",
+                  ]
     
     writer = csv.DictWriter(csvfile, fieldnames=fieldnames, extrasaction="ignore")
     writer.writeheader()
@@ -559,6 +568,15 @@ with open(process_file_name,"r") as fin, open(output_file_name,"w",newline='',en
         tc_verdict = tc_data.pop("verdict_response_code")
         tc_data.clear()
 
+        #Get Domain Tools Data
+        dt_domains = ""
+        try:
+            response = dtapi.dtapi.reverse_ip(addr)
+            for domain in dtapi.dtapi.domainlist_reverseip(response):
+                dt_domains = dt_domains + domain + ";"
+        except:
+            dt_domains = "None found"
+
 
         #Get WhoIs Data
         try:
@@ -637,6 +655,7 @@ with open(process_file_name,"r") as fin, open(output_file_name,"w",newline='',en
                              "shodan_org" : shodan_org,
                              "shodan_hostnames" : shodan_hostnames,
                              "shodan_domains" : shodan_domains,
+                             "dt_domains": dt_domains,
                              "shodan_ports" : shodan_ports,
                              "shodan_loc_city" : shodan_loc_city,
                              "shodan_loc_region_code" : shodan_loc_region_code,
@@ -684,6 +703,7 @@ with open(process_file_name,"r") as fin, open(output_file_name,"w",newline='',en
                              "shodan_org" : "-",
                              "shodan_hostnames" : "-",
                              "shodan_domains" : "-",
+                             "dt_domains" : "-",
                              "shodan_ports" : "-",
                              "shodan_loc_city" : "-",
                              "shodan_loc_region_code" : "-",
