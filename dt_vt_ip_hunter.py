@@ -47,7 +47,7 @@ with open(vt_credfile,'r') as vt_creds:
 
 dt = datetime.date.today()
 input_file_name = os.path.normcase(str(input('Enter the full path to your file, include the file name and extension: ')))
-output_path = os.getcwd('~/')
+output_path = os.getcwd()
 output_name = ("webshell_IP_reverse_search_"+str(dt)+".csv")
 output_file_name = os.path.join(output_path, output_name)
 
