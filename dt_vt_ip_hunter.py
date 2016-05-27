@@ -38,8 +38,6 @@ with open(dt_credfile,'r') as dt_creds:
     dtkey = dt_creds.readline().strip()
 dtapi.dtapi.configure(dtuser, dtkey, usessl=True)
 
-vtkey = ""
-vtuser = ""
 vt_credfile = os.path.expanduser('~/api_creds/vtapi.txt')
 with open(vt_credfile,'r') as vt_creds:
     vtuser = vt_creds.readline().strip()
@@ -48,7 +46,7 @@ with open(vt_credfile,'r') as vt_creds:
 dt = datetime.date.today()
 input_file_name = os.path.normcase(str(input('Enter the full path to your file, include the file name and extension: ')))
 output_path = os.getcwd()
-output_name = ("webshell_IP_reverse_search_"+str(dt)+".csv")
+output_name = ("IP_reverse_search_dtvt"+str(dt)+".csv")
 output_file_name = os.path.join(output_path, output_name)
 
 with open(input_file_name, "r") as fin, open(output_file_name,"w",newline='',encoding="ascii", errors="ignore") as csvfile:
