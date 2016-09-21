@@ -55,8 +55,9 @@ def get_sample(url, output_destination=None, output_file_name=None, attempt_numb
     except requests.exceptions.HTTPError as e:
         print("{0}".format(e))
 
-    except requests.exceptions.ConnectionError as e:
-        logit.exception(e)
+    except requests.exceptions.ConnectionError as e: 
+        #put this here for logging to be done later
+        print("{0}".format(e))
 
     except requests.exceptions.Timeout:
         if attempt_number < max_attempts:
