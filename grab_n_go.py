@@ -26,8 +26,6 @@ def setup_output(output_destination, output_file_name):
             output_destination = os.mkdir(os.path.join(here,"Grab_n_Go_Results", url.split('/')[-1]))
         except FileExistsError as e:
             output_destination = os.path.join(here,"Grab_n_Go_Results")
-    if output_file_name is None:
-        output_file_name = url.split('/')[-1]
     outfile = os.path.join(output_destination, output_file_name)
     exists = os.path.isfile(outfile)
     while exists:
@@ -39,6 +37,8 @@ def setup_output(output_destination, output_file_name):
 
 def get_sample(url, output_destination=None, output_file_name=None, attempt_number=1):
     print("Trying to get the sample")
+    if output_file_name is None:
+         output_file_name = url.split('/')[-1]
     outfile = setup_output(output_destination, output_file_name)
     max_attempts = 3
     try:
