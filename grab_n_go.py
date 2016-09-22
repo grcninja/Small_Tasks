@@ -1,31 +1,40 @@
 #!/usr/bin/python
 '''
-For Windows users who don't want to install wget or some other utility
-
 This script should do 3 or 4 things, depending on how you count:
-1.  Take a single URL to a file as input and pull it down.
-NEXT: set up a parameter to read in a file of URLs
-Contributors to this script include: tazz
+1.  Take a single URL to a file as input
+    pull it down
+    submit it Threat Grid - return the URL for the sample run
+    submit to the Talos Sandbox - return the runID
+
+Contributors to this script include: tazz, pr00f
 '''
 
 import argparse
+import datetime
 import os
 import requests
 import sys
 import validators
+
+dt = datetime.date.today()
+#There are much more secure ways to do this, update this later
+tg_credfile = os.path.expanduser('~/api_creds/tgapi.txt')
+with open(tg_credfile,'r') as tg_creds:
+    tgkey = tg_creds.readline().strip()
 
 
 def setup_output(output_destination, output_file_name):
     #this function ensures that we don't overwrite files with the same name
     #if the file already exists, we will prepend the file name with a number and underscore
     #we want to preserve the extension as the sandboxes will need that
+    
     count = 0
     if output_destination is None:
         here = os.getcwd()
         try:
-            output_destination = os.mkdir(os.path.join(here,"Grab_n_Go_Results", output_file_name))
+            output_destination = os.mkdir(os.path.join(here,"Grab_n_Go_Results",str(dt)))
         except FileExistsError as e:
-            output_destination = os.path.join(here,"Grab_n_Go_Results")
+            output_destination = os.path.join(here,"Grab_n_Go_Results",str(dt))
     outfile = os.path.join(output_destination, output_file_name)
     exists = os.path.isfile(outfile)
     while exists:
@@ -47,17 +56,16 @@ def get_sample(url, output_destination=None, output_file_name=None, attempt_numb
             for chunk in r.iter_content(1024): 
                 if chunk: # filter out keep-alive new chunks
                     fout.write(chunk)
-        print("The file was saved to: {0}".format(outfile))
-
-        #submit_toTG(fout)
-        #submit_toTalosSandbox(fout)
+        fout.close()
+        print(tgSubmitFile(outfile, options={'private':1}))
 
     except requests.exceptions.HTTPError as e:
         print("{0}".format(e))
+        return
 
-    except requests.exceptions.ConnectionError as e: 
-        #put this here for logging to be done later
+    except requests.exceptions.ConnectionError as e:
         print("{0}".format(e))
+        return
 
     except requests.exceptions.Timeout:
         if attempt_number < max_attempts:
@@ -65,24 +73,42 @@ def get_sample(url, output_destination=None, output_file_name=None, attempt_numb
             return get_sample(url, attempt_number=attempt)
         else:
             print("Timeout Error. Attempted {0} times to get {0}".format(max_attempts, url))
+            return
 
     except requests.exceptions.TooManyRedirects:
         print("Too many redirects when trying to get {0}".format(url))
+        return
 
     except requests.exceptions.RequestException as e:
         print("{0}".format(e))
+        return
 
-    return r
+    return
 
-def submitTG(sample):
-    #submit sample to ThreatGrid
-    #return the url or identifying value for the sample
-    return None
 
-def submitSandbox(sample):
-    #submit sample to internal SandBox
-    #return runID or identifying value for the sample
-    return None
+def tgSubmitFile(suspicious_sample,options={}):
+    #credit for the bulk of this function goes to Colin Grady
+    valid_options = [ 'os', 'osver', 'vm', 'private', 'source', 'tags' ]
+    filename = os.path.basename(suspicious_sample)
+    
+    with open(suspicious_sample, "rb") as fd:
+        file_data = fd.read()
+    
+    params = { 'api_key': tgkey, 'filename': filename}
+    file = { 'sample': (filename, file_data) }
+
+    for option in valid_options:
+        if option in options:
+            params[option] = options[option]
+
+    # TODO: Submission response handling needs to be more robust
+
+    try:
+        resp = requests.post('https://panacea.threatgrid.com/api/v2/samples', params=params, files=file, verify=False)
+    except:
+        return False
+
+    return resp.json()
 
 
 parser = argparse.ArgumentParser()
@@ -105,3 +131,4 @@ if args.url:
             get_sample(fixedurl, output_file_name=None)
         else:
             sys.exit("Error: not a valid URL format {0}. Probably missing the protocol http or https ://".format(args.url))
+
