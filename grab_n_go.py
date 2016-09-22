@@ -23,7 +23,7 @@ def setup_output(output_destination, output_file_name):
     if output_destination is None:
         here = os.getcwd()
         try:
-            output_destination = os.mkdir(os.path.join(here,"Grab_n_Go_Results", url.split('/')[-1]))
+            output_destination = os.mkdir(os.path.join(here,"Grab_n_Go_Results", output_file_name))
         except FileExistsError as e:
             output_destination = os.path.join(here,"Grab_n_Go_Results")
     outfile = os.path.join(output_destination, output_file_name)
