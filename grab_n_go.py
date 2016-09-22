@@ -4,7 +4,6 @@ This script should do 3 or 4 things, depending on how you count:
 1.  Take a single URL to a file as input
     pull it down
     submit it Threat Grid - return the URL for the sample run
-    submit to the Talos Sandbox - return the runID
 
 Contributors to this script include: tazz, pr00f
 '''
