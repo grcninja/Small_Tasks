@@ -246,7 +246,7 @@ if args.sb:
     #default is all
     sandboxes = list()
     args.sb = [x.lower() for x in args.sb] #some idiot is surely going to use an uppercase character
-    sandboxes_allowed = ["all","tg","vt","ours"]
+    sandboxes_allowed = ["all","none","tg","vt","ours"]
     for x in args.sb:
         if "all" in args.sb:
             sandboxes.append("all")
