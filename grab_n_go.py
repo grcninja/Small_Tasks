@@ -71,7 +71,8 @@ def setup_output(output_destination, output_file_name):
         exists = os.path.isfile(outfile)
     return outfile
 
-def get_single_sample(url, output_destination=None, output_file_name=None, attempt_number=1):
+def get_single_sample(url, output_destination=None, output_file_name=None, attempt_number=1, submit_to=["all"]):
+    sandboxes = submit_to
     print("Trying to get the sample")
     if output_file_name is None:
          output_file_name = url.split('/')[-1]
@@ -87,7 +88,16 @@ def get_single_sample(url, output_destination=None, output_file_name=None, attem
                 if chunk: # filter out keep-alive new chunks
                     fout.write(chunk)
         fout.close()
-        pp.pprint(tgSubmitFile(outfile, options={'private':1}))
+        if "all" in submit_to: #submit all the things to all the things!!!
+            pp.pprint(tgSubmitFile(outfile, options={'private':1}))
+            #TO-DO add VT here
+            #TO-DO add OUR internal sandbox here
+        elif "tg" in submit_to: #submit to Threat Grid
+            pp.pprint(tgSubmitFile(outfile, options={'private':1}))
+        elif "vt" in submit_to:
+            print("We are't set up to send to VT in this version") #submit to Virus Total
+        elif "our" in submit_to:
+            print("We are't set up to send to our internal sandbox in this version") #submit to OUR internal sandbox
 
     except requests.exceptions.HTTPError as e:
         print("HTTPError Error for {0} \n{1}".format(target, e))
@@ -100,7 +110,7 @@ def get_single_sample(url, output_destination=None, output_file_name=None, attem
     except requests.exceptions.Timeout:
         if attempt_number < max_attempts:
             attempt += 1
-            return get_single_sample(url, attempt_number=attempt)
+            return get_single_sample(url, attempt_number=attempt, submit_to=sandboxes)
         else:
             print("Timeout Error. Attempted {0} times to get {1}".format(max_attempts, url))
             return
@@ -115,12 +125,9 @@ def get_single_sample(url, output_destination=None, output_file_name=None, attem
 
     return
 
-def get_multiple_samples(source_list):
-    print("Processing input file to fetch samples")
+def get_multiple_samples(source_list, submit_to):
     output_destination = set_directory()
-    print(source_list)
     for x in range(len(source_list)):
-        print(str(x))
         target = source_list[x]
         output_file_name = target.split('/')[-1]
         outfile = setup_output(output_destination, output_file_name)
@@ -132,27 +139,36 @@ def get_multiple_samples(source_list):
                     if chunk: # filter out keep-alive new chunks
                         fout.write(chunk)
             fout.close()
-            pp.pprint(tgSubmitFile(outfile, options={'private':1}))
+            if "all" in submit_to: #submit all the things to all the things!!!
+                pp.pprint(tgSubmitFile(outfile, options={'private':1}))
+                #TO-DO add VT here
+                #TO-DO add OUR internal sandbox here
+            elif "tg" in submit_to: #submit to Threat Grid
+                pp.pprint(tgSubmitFile(outfile, options={'private':1}))
+            elif "vt" in submit_to:
+                print("We are't set up to send to VT in this version") #submit to Virus Total
+            elif "our" in submit_to:
+                print("We are't set up to send to our internal sandbox in this version") #submit to OUR internal sandbox
 
         except requests.exceptions.HTTPError as e:
             print("HTTPError Error for {0} \n{1}".format(target, e))
-            return
+            continue
 
         except requests.exceptions.ConnectionError as e:
             print("Connection Error for {0} \n{1}".format(target, e))
-            return
+            continue
 
         except requests.exceptions.Timeout:
             print("Timeout Error for {0} \n{1}".format(target, e))
-            return
+            continue
 
         except requests.exceptions.TooManyRedirects:
             print("Too many redirects when trying to get {0}".format(target))
-            return
+            continue
 
         except requests.exceptions.RequestException as e:
             print("RequestException Error for {0} \n{1}".format(target, e))
-            return
+            continue
 
     return
 
@@ -164,8 +180,8 @@ def tgSubmitFile(suspicious_sample,options={}):
     with open(suspicious_sample, "rb") as fd:
         file_data = fd.read()
     
-    params = { 'api_key': tgkey, 'filename': filename}
-    file = { 'sample': (filename, file_data) }
+    params = {'api_key':tgkey, 'filename':filename}
+    file = {'sample':(filename, file_data)}
 
     for option in valid_options:
         if option in options:
@@ -177,8 +193,13 @@ def tgSubmitFile(suspicious_sample,options={}):
         resp = requests.post('https://panacea.threatgrid.com/api/v2/samples', params=params, files=file, verify=False)
     except:
         return False
-
+    #yield
+    #to speed things up, we can just use yield instead of
+    #'return resp.json()' once we get to the point we
+    #don't actually need to see or use the json response
     return resp.json()
+
+
 
 ##################################################################
 #                         MAIN                                   #
@@ -191,7 +212,7 @@ parser.add_argument("-url",
 You may use this with the --o parameter to sepcify a specific name four your output file''')
 
 #OUTPUT: specify a destination path and file name, ONLY USED WITH -url
-parser.add_argument("-o", "--ofile", "--outfile",
+parser.add_argument("-o", "--outfile",
                     help='''Is used with the -url command the path and name of the output file you want to use.
 If the file exists, it will be overwritten
 You can only use this option if you are providing a url at the command line.''')
@@ -201,6 +222,11 @@ parser.add_argument("-f", "--file",
                     help='''Is the input file name and path ex: ~/BadStuff/input/badthingslist.txt
 Contenst should be in this format http://judo-club-solesmois-59.fr/bin/dll.exe, one per line.
 You can use the --dir command to specify where your output should go.  File names will be the same as the source.''')
+
+#EVALUATION DESTINATIONS: what sandboxes do you want to send the file to for evaluation.
+#if you add anything to the help list here, make sure to update the allowed list below
+parser.add_argument("-sb", action="append", default="all", help="all (for all sandboxes, this is the default),"+
+                    "tg (threatgrid), vt (virus total), ours (our internal sandbox)")
 
 args = parser.parse_args()
 outputfilename = None
@@ -214,7 +240,19 @@ if not args.url and not args.file:
 if args.url and args.file:
     sys.exit("Error:  Provide one or the other, but not both a URL and an input file.")
 
-
+if args.sb:
+    #default is all
+    args.sb = [x.lower() for x in args.sb] #some idiot is surely going to use an uppercase character
+    sandboxes_allowed = ["all","tg","vt","ours"]
+    for x in args.sb:
+        if "all" in args.sb:
+            sandboxes.append("all")
+            break
+        else:
+            for sandbox in sandboxes_allowed:
+                if sandbox in args.sb:
+                    sandboxes.append(sandbox)
+    
 if args.url:
     if validators.url(args.url):
         if args.ofile:
@@ -232,14 +270,14 @@ if args.url:
                             "this destination.  Ensure you provided a file name" +
                             "and have permssion to write to the directory.")
             else: sys.exit("Error:  You did not provide a valid path and filename")
-        get_single_sample(args.url, output_destination=outputdestination, output_file_name=outputfilename)
+        get_single_sample(args.url, output_destination=outputdestination, output_file_name=outputfilename, submit_to=sandboxes)
     else:
         #try to help and see if they forgot the protocol at the beginning
         protocol = "http://"
         fixedurl = protocol + args.url
         print(fixedurl)
         if validators.url(fixedurl):
-            get_single_sample(fixedurl, output_destination=outputdestination, output_file_name=outputfile)
+            get_single_sample(fixedurl, output_destination=outputdestination, output_file_name=outputfile, submit_to=sandboxes)
         else:
             sys.exit("Error: not a valid URL format {0}. Probably missing the protocol http or https ://".format(args.url))
 
@@ -261,6 +299,6 @@ if args.file:
                     else:
                         print("Invalid URL format, {0} was not processed.".format(target))
         if targets:
-            get_multiple_samples(targets)
+            get_multiple_samples(targets, submit_to=sandboxes)
         else:
             sys.exit("Error: Your sourcelist did not have any properly formatted URLs, nothing has been processed.")
