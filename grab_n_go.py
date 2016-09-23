@@ -27,14 +27,14 @@ dt = datetime.date.today()
 ##################################################################
 
 #There are much more secure ways to do this, update this later
-tg_credfile = os.path.expanduser('~/api_creds/tgapi.txt')
-with open(tg_credfile,'r') as tg_creds:
+tg_credfile = os.path.expanduser("~/api_creds/tgapi.txt")
+with open(tg_credfile,"r") as tg_creds:
     tgkey = tg_creds.readline().strip()
 
 vtkey = ""
 vtuser = ""
-vt_credfile = os.path.expanduser('~/api_creds/vtapi.txt')
-with open(vt_credfile,'r') as vt_creds:
+vt_credfile = os.path.expanduser("~/api_creds/vtapi.txt")
+with open(vt_credfile,"r") as vt_creds:
     vtuser = vt_creds.readline().strip()
     vtkey = vt_creds.readline().strip()
 
@@ -71,11 +71,11 @@ def setup_output(output_destination, output_file_name):
         exists = os.path.isfile(outfile)
     return outfile
 
-def get_single_sample(url, output_destination=None, output_file_name=None, attempt_number=1, submit_to=["all"]):
+def get_single_sample(url, output_destination=None, output_file_name=None, attempt_number=1, submit_to=[]):
     sandboxes = submit_to
     print("Trying to get the sample")
     if output_file_name is None:
-         output_file_name = url.split('/')[-1]
+         output_file_name = url.split("/")[-1]
     if output_destination is None:
         output_destination = set_directory()
     outfile = setup_output(output_destination, output_file_name)
@@ -83,21 +83,22 @@ def get_single_sample(url, output_destination=None, output_file_name=None, attem
     attempt = attempt_number
     try:
         r = requests.get(url, timeout=(3.5, 30), stream=True)  
-        with open(outfile, 'wb') as fout:
+        with open(outfile, "wb") as fout:
             for chunk in r.iter_content(1024): 
                 if chunk: # filter out keep-alive new chunks
                     fout.write(chunk)
         fout.close()
-        if "all" in submit_to: #submit all the things to all the things!!!
-            pp.pprint(tgSubmitFile(outfile, options={'private':1}))
-            #TO-DO add VT here
-            #TO-DO add OUR internal sandbox here
-        elif "tg" in submit_to: #submit to Threat Grid
-            pp.pprint(tgSubmitFile(outfile, options={'private':1}))
-        elif "vt" in submit_to:
-            print("We are't set up to send to VT in this version") #submit to Virus Total
-        elif "our" in submit_to:
-            print("We are't set up to send to our internal sandbox in this version") #submit to OUR internal sandbox
+        if sandboxes:
+            if "all" in submit_to: #submit all the things to all the things!!!
+                pp.pprint(tgSubmitFile(outfile, options={"private":1}))
+                #TO-DO add VT here
+                #TO-DO add OUR internal sandbox here
+            elif "tg" in submit_to: #submit to Threat Grid
+                pp.pprint(tgSubmitFile(outfile, options={"private":1}))
+            elif "vt" in submit_to:
+                print("We are't set up to send to VT in this version") #submit to Virus Total
+            elif "our" in submit_to:
+                print("We are't set up to send to our internal sandbox in this version") #submit to OUR internal sandbox
 
     except requests.exceptions.HTTPError as e:
         print("HTTPError Error for {0} \n{1}".format(target, e))
@@ -125,30 +126,31 @@ def get_single_sample(url, output_destination=None, output_file_name=None, attem
 
     return
 
-def get_multiple_samples(source_list, submit_to):
+def get_multiple_samples(source_list, submit_to=[]):
     output_destination = set_directory()
     for x in range(len(source_list)):
         target = source_list[x]
-        output_file_name = target.split('/')[-1]
+        output_file_name = target.split("/")[-1]
         outfile = setup_output(output_destination, output_file_name)
         try:
             print("Trying to get {0}".format(target))
             r = requests.get(target, timeout=(3.5, 30), stream=True)  
-            with open(outfile, 'wb') as fout:
+            with open(outfile, "wb") as fout:
                 for chunk in r.iter_content(1024): 
                     if chunk: # filter out keep-alive new chunks
                         fout.write(chunk)
             fout.close()
-            if "all" in submit_to: #submit all the things to all the things!!!
-                pp.pprint(tgSubmitFile(outfile, options={'private':1}))
-                #TO-DO add VT here
-                #TO-DO add OUR internal sandbox here
-            elif "tg" in submit_to: #submit to Threat Grid
-                pp.pprint(tgSubmitFile(outfile, options={'private':1}))
-            elif "vt" in submit_to:
-                print("We are't set up to send to VT in this version") #submit to Virus Total
-            elif "our" in submit_to:
-                print("We are't set up to send to our internal sandbox in this version") #submit to OUR internal sandbox
+            if submit_to:
+                if "all" in submit_to: #submit all the things to all the things!!!
+                    pp.pprint(tgSubmitFile(outfile, options={"private":1}))
+                    #TO-DO add VT here
+                    #TO-DO add OUR internal sandbox here
+                elif "tg" in submit_to: #submit to Threat Grid
+                    pp.pprint(tgSubmitFile(outfile, options={"private":1}))
+                elif "vt" in submit_to:
+                    print("We are't set up to send to VT in this version") #submit to Virus Total
+                elif "our" in submit_to:
+                    print("We are't set up to send to our internal sandbox in this version") #submit to OUR internal sandbox
 
         except requests.exceptions.HTTPError as e:
             print("HTTPError Error for {0} \n{1}".format(target, e))
@@ -172,16 +174,16 @@ def get_multiple_samples(source_list, submit_to):
 
     return
 
-def tgSubmitFile(suspicious_sample,options={}):
+def tgSubmitFile(suspicious_sample, options={}):
     #credit for the bulk of this function goes to Colin Grady
-    valid_options = [ 'os', 'osver', 'vm', 'private', 'source', 'tags' ]
+    valid_options = ["os", "osver", "vm", "private", "source", "tags"]
     filename = os.path.basename(suspicious_sample)
     
     with open(suspicious_sample, "rb") as fd:
         file_data = fd.read()
     
-    params = {'api_key':tgkey, 'filename':filename}
-    file = {'sample':(filename, file_data)}
+    params = {"api_key":tgkey, "filename":filename}
+    file = {"sample":(filename, file_data)}
 
     for option in valid_options:
         if option in options:
@@ -190,7 +192,7 @@ def tgSubmitFile(suspicious_sample,options={}):
     # TODO: Submission response handling needs to be more robust
 
     try:
-        resp = requests.post('https://panacea.threatgrid.com/api/v2/samples', params=params, files=file, verify=False)
+        resp = requests.post("https://panacea.threatgrid.com/api/v2/samples", params=params, files=file, verify=False)
     except:
         return False
     #yield
@@ -226,7 +228,7 @@ You can use the --dir command to specify where your output should go.  File name
 #EVALUATION DESTINATIONS: what sandboxes do you want to send the file to for evaluation.
 #if you add anything to the help list here, make sure to update the allowed list below
 parser.add_argument("-sb", action="append", default="all", help="all (for all sandboxes, this is the default),"+
-                    "tg (threatgrid), vt (virus total), ours (our internal sandbox)")
+                    "none (do NOT submit anywhere), tg (threatgrid), vt (virus total), ours (our internal sandbox)")
 
 args = parser.parse_args()
 outputfilename = None
@@ -242,11 +244,15 @@ if args.url and args.file:
 
 if args.sb:
     #default is all
+    sandboxes = list()
     args.sb = [x.lower() for x in args.sb] #some idiot is surely going to use an uppercase character
     sandboxes_allowed = ["all","tg","vt","ours"]
     for x in args.sb:
         if "all" in args.sb:
             sandboxes.append("all")
+            break
+        if "none" in args.sb:
+            sandboxes.clear() #this is new in python3.3,same as del sandboxes[:]
             break
         else:
             for sandbox in sandboxes_allowed:
