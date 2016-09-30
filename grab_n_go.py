@@ -16,12 +16,14 @@ import argparse
 import datetime
 import os
 import pprint as pp
+import re
 import requests
 import sys
 import validators
 
 dt = datetime.date.today()
-
+http_regex = re.compile(r'^[http | https]{1}', re.IGNORECASE)
+symbols_regex = re.compile(r'\W', re.IGNORECASE)
 ##################################################################
 #                         GET API KEYS                           #
 ##################################################################
@@ -41,6 +43,15 @@ with open(vt_credfile,"r") as vt_creds:
 ##################################################################
 #                         FUNCTIONS                              #
 ##################################################################
+def clean(name): #False gets rid of all special characters
+    illegal = ("!","@","#","$","%","^","&","*","(",")","{","}","[","]",":",";","'","<",">",",","?","/","|","'\'","~","`","+","=","\n","\t","\r")
+    cleaned = name
+    i=0
+    while i < len(illegal):
+        cleaned = cleaned.replace(illegal[i],"_")
+        i+=1
+    cleaned.strip()
+    return cleaned
 
 def set_directory():
     here = os.getcwd()
@@ -76,13 +87,15 @@ def get_single_sample(url, output_destination=None, output_file_name=None, attem
     print("Trying to get the sample")
     if output_file_name is None:
          output_file_name = url.split("/")[-1]
+         if symbols_regex.search(output_file_name):
+             output_file_name = clean(output_file_name)
     if output_destination is None:
         output_destination = set_directory()
     outfile = setup_output(output_destination, output_file_name)
     max_attempts = 3
     attempt = attempt_number
     try:
-        r = requests.get(url, timeout=(3.5, 30), stream=True)  
+        r = requests.get(url, timeout=(3.5, 30), stream=True)
         with open(outfile, "wb") as fout:
             for chunk in r.iter_content(1024): 
                 if chunk: # filter out keep-alive new chunks
@@ -128,10 +141,16 @@ def get_single_sample(url, output_destination=None, output_file_name=None, attem
 
 def get_multiple_samples(source_list, submit_to=[]):
     output_destination = set_directory()
+    print("Samples will be submitted to: {}".format(submit_to))
     for x in range(len(source_list)):
         target = source_list[x]
         output_file_name = target.split("/")[-1]
+        if symbols_regex.search(output_file_name):
+             output_file_name = clean(output_file_name)
         outfile = setup_output(output_destination, output_file_name)
+        if not validators.url(target):
+             protocol = "http://"
+             target = protocol + target
         try:
             print("Trying to get {0}".format(target))
             r = requests.get(target, timeout=(3.5, 30), stream=True)  
@@ -140,6 +159,7 @@ def get_multiple_samples(source_list, submit_to=[]):
                     if chunk: # filter out keep-alive new chunks
                         fout.write(chunk)
             fout.close()
+            
             if submit_to:
                 if "all" in submit_to: #submit all the things to all the things!!!
                     pp.pprint(tgSubmitFile(outfile, options={"private":1}))
@@ -208,6 +228,11 @@ def tgSubmitFile(suspicious_sample, options={}):
 ##################################################################
 
 parser = argparse.ArgumentParser()
+#EVALUATION DESTINATIONS: what sandboxes do you want to send the file to for evaluation.
+#if you add anything to the help list here, make sure to update the allowed list below
+parser.add_argument("sb", action="append", help="all (for all sandboxes listed here),"+
+                    "none (do NOT submit anywhere), tg (threatgrid), vt (virus total), ours (our internal sandbox)")
+
 #INPUT: single url
 parser.add_argument("-url",
                     help='''The url you want to grab a file from ex:http://judo-club-solesmois-59.fr/bin/dll.exe.
@@ -225,10 +250,7 @@ parser.add_argument("-f", "--file",
 Contenst should be in this format http://judo-club-solesmois-59.fr/bin/dll.exe, one per line.
 You can use the --dir command to specify where your output should go.  File names will be the same as the source.''')
 
-#EVALUATION DESTINATIONS: what sandboxes do you want to send the file to for evaluation.
-#if you add anything to the help list here, make sure to update the allowed list below
-parser.add_argument("-sb", action="append", default="all", help="all (for all sandboxes, this is the default),"+
-                    "none (do NOT submit anywhere), tg (threatgrid), vt (virus total), ours (our internal sandbox)")
+
 
 args = parser.parse_args()
 outputfilename = None
@@ -243,12 +265,14 @@ if args.url and args.file:
     sys.exit("Error:  Provide one or the other, but not both a URL and an input file.")
 
 if args.sb:
+    print("arg.sb is: {0} the length of args.sb is: {1}".format(args.sb, len(args.sb)))
     #default is all
     sandboxes = list()
     args.sb = [x.lower() for x in args.sb] #some idiot is surely going to use an uppercase character
     sandboxes_allowed = ["all","none","tg","vt","ours"]
     for x in args.sb:
-        if "all" in args.sb:
+        if len(args.sb) == 0:
+            #if the user doesn't sepcify a sandbox, the list will be empty
             sandboxes.append("all")
             break
         if "none" in args.sb:
@@ -258,6 +282,7 @@ if args.sb:
             for sandbox in sandboxes_allowed:
                 if sandbox in args.sb:
                     sandboxes.append(sandbox)
+    print("Finally, args.sb is ".format(args.sb))
     
 if args.url:
     if validators.url(args.url):
@@ -293,7 +318,6 @@ if args.file:
         with open(args.file, "r") as fin:
             for line in fin:
                 target = line.strip()
-                print("Reading in {0}".format(target))
                 if validators.url(target):
                     targets.append(target)
                 else:
