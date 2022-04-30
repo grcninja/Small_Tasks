@@ -2,7 +2,10 @@
 This script pulls the raw csv files from https://github.com/simonhuwiler/uawardata
 Prepends a date to the csv then
 Adds a column for coords, which combines the lat & lng columns with a comma into one field
-If you wish to use this with another csv on the web, note 
+If you wish to use this with another csv on the web, note this code does not
+account for the variety of ways someone names lattitude and longitude columns
+it doesn't account for uppercase, abbreviations, misspellings etc.
+If you with to use the regex compiled matches in lines 27 & 28 you are welcome
 '''
 
 
